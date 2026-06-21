@@ -55,9 +55,9 @@ async def _log_update(update: Update, context) -> None:
     else:
         update_type = next(
             (
-                t.value
+                t
                 for t in Update.ALL_TYPES
-                if getattr(update, t.value, None) is not None
+                if getattr(update, t, None) is not None
             ),
             "unknown",
         )
