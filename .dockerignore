@@ -1,0 +1,27 @@
+# Version control
+.git/
+.gitignore
+
+# Virtual environment
+.venv/
+
+# Tests
+tests/
+.pytest_cache/
+.ruff_cache/
+
+# Planning & docs
+.planning/
+*.md
+
+# Secrets — never send to Docker daemon
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor / OS
+.claude/
+*.DS_Store
