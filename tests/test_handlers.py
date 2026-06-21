@@ -5,11 +5,11 @@ from bot.handlers import handle_text, help_cmd, start
 from bot.prompts import HELP_TEXT, START_TEXT
 
 
-def _make_update(text="hello", chat_id=123):
+def _make_update(text="hello", user_id=123):
     update = MagicMock()
     update.message.text = text
     update.message.reply_text = AsyncMock()
-    update.effective_chat.id = chat_id
+    update.effective_user.id = user_id
     return update
 
 
@@ -17,7 +17,7 @@ def _make_context(reply="hi back", allowed=frozenset()):
     context = MagicMock()
     context.bot_data = {
         "complete": AsyncMock(return_value=reply),
-        "allowed_chat_ids": allowed,
+        "allowed_user_ids": allowed,
     }
     return context
 
@@ -40,7 +40,7 @@ def test_handle_text_friendly_error_on_llm_failure():
 
 
 def test_handle_text_rejects_unauthorized_chat():
-    update = _make_update(chat_id=999)
+    update = _make_update(user_id=999)
     context = _make_context(allowed=frozenset({123}))
     asyncio.run(handle_text(update, context))
     update.message.reply_text.assert_awaited_once()
