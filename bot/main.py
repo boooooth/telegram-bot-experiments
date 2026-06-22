@@ -23,19 +23,11 @@ async def _log_update(update: Update, context) -> None:
         caller = m.guest_bot_caller_user
         frm = m.from_user
         chat = m.chat
-        frm_str = (
-            f"{frm.full_name} (@{frm.username}, id={frm.id})" if frm else "unknown"
-        )
+        frm_str = f"{frm.full_name} (@{frm.username}, id={frm.id})" if frm else "unknown"
         caller_str = (
-            f"{caller.full_name} (@{caller.username}, id={caller.id})"
-            if caller
-            else "unknown"
+            f"{caller.full_name} (@{caller.username}, id={caller.id})" if caller else "unknown"
         )
-        chat_str = (
-            getattr(chat, "title", None)
-            or getattr(chat, "full_name", None)
-            or str(chat.id)
-        )
+        chat_str = getattr(chat, "title", None) or getattr(chat, "full_name", None) or str(chat.id)
         _log.info(
             "\n[GUEST UPDATE #%s]\n"
             "  Mentioned by : %s\n"
@@ -75,9 +67,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(
-        MessageHandler(filters.UpdateType.GUEST_MESSAGE, handle_guest_query)
-    )
+    app.add_handler(MessageHandler(filters.UpdateType.GUEST_MESSAGE, handle_guest_query))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(TypeHandler(Update, _log_update), group=1)
 

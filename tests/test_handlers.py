@@ -43,6 +43,7 @@ def _make_guest_context(reply="hi back", allowed=frozenset()):
 
 # --- handle_text ---
 
+
 def test_handle_text_replies_with_llm_output():
     update = _make_update("hello")
     context = _make_context(reply="the answer")
@@ -117,6 +118,7 @@ def test_help_sends_usage():
 
 
 # --- handle_guest_query ---
+
 
 def test_handle_guest_query_replies_with_llm_output():
     update = _make_guest_update(text="what is 2+2")

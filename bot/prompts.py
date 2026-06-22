@@ -5,9 +5,7 @@ SYSTEM_PROMPT = (
     "Always reply in the same language the user writes in."
 )
 
-START_TEXT = (
-    "Hi! Send me any message and I'll answer using AI.\nType /help for usage info."
-)
+START_TEXT = "Hi! Send me any message and I'll answer using AI.\nType /help for usage info."
 
 HELP_TEXT = (
     "Just send me any text message and I'll reply using AI.\n"

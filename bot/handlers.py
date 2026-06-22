@@ -20,9 +20,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(HELP_TEXT)
 
 
-async def handle_guest_query(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.guest_message
     if message is None or not message.text or not message.guest_query_id:
         return
@@ -55,9 +53,7 @@ async def handle_guest_query(
                 input_message_content=InputTextMessageContent(message_text=reply),
             ),
         )
-        logger.info(
-            "answered guest query from user_id=%s", caller.id if caller else "unknown"
-        )
+        logger.info("answered guest query from user_id=%s", caller.id if caller else "unknown")
     except Exception:
         logger.exception("LLM call failed for guest query")
 
@@ -71,9 +67,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user_id = update.effective_user.id if update.effective_user else None
     allowed_user_ids = context.bot_data.get("allowed_user_ids", frozenset())
     if allowed_user_ids and (not user_id or user_id not in allowed_user_ids):
-        await update.message.reply_text(
-            "Sorry, you are not authorized to use this bot."
-        )
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
         logger.info("unauthorized access attempt from user_id=%s", user_id)
         return
     text = update.message.text

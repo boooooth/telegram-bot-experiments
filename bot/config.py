@@ -36,13 +36,9 @@ def load_settings() -> Settings:
     ``LLM_MODEL`` is optional and defaults to ``gpt-4o-mini`` (LLM-01).
     ``ALLOWED_USER_IDS`` is optional; when unset, all users are allowed.
     """
-    missing = [
-        name for name in REQUIRED_VARS if not (os.environ.get(name) or "").strip()
-    ]
+    missing = [name for name in REQUIRED_VARS if not (os.environ.get(name) or "").strip()]
     if missing:
-        raise ConfigError(
-            f"Missing required environment variable(s): {', '.join(missing)}"
-        )
+        raise ConfigError(f"Missing required environment variable(s): {', '.join(missing)}")
 
     def _parse_ids(env_var: str) -> frozenset[int]:
         raw = os.environ.get(env_var, "").strip()
