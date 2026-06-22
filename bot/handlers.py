@@ -1,9 +1,12 @@
 import logging
+import time
 
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.ext import ContextTypes
 
 from .prompts import HELP_TEXT, START_TEXT
+
+_DRAFT_UPDATE_INTERVAL = 1.0  # seconds between sendMessageDraft calls
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,8 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info("guest query from user_id=%s", caller.id if caller else "unknown")
     try:
         reply = await context.bot_data["complete"](message.text)
+        if len(reply) > MAX_INLINE_TEXT:
+            reply = reply[: MAX_INLINE_TEXT - 1] + "…"
         await context.bot.answer_guest_query(
             guest_query_id=message.guest_query_id,
             result=InlineQueryResultArticle(
@@ -59,6 +64,8 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 MAX_MESSAGE_LENGTH = 4_000
+MAX_INLINE_TEXT = 4_096
+BLOCK_SIZE = 4_096
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -81,9 +88,30 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.info("message too long from user_id=%s (%d chars)", user_id, len(text))
         return
     logger.info("message from user_id=%s", user_id)
+    chat_id = update.effective_chat.id
+    base_draft_id = update.message.message_id
+    block_count = 0
+    draft_id = base_draft_id
     try:
-        reply = await context.bot_data["complete"](text)
-        await update.message.reply_text(reply)
+        await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+        accumulated = ""
+        last_update = time.monotonic()
+        async for chunk in context.bot_data["complete_stream"](text):
+            accumulated += chunk
+            if len(accumulated) >= BLOCK_SIZE:
+                await update.message.reply_text(accumulated[:BLOCK_SIZE])
+                accumulated = accumulated[BLOCK_SIZE:]
+                block_count += 1
+                draft_id = base_draft_id + block_count
+                last_update = time.monotonic()
+                await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+            elif time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
+                await context.bot.send_message_draft(
+                    chat_id=chat_id, draft_id=draft_id, text=accumulated
+                )
+                last_update = time.monotonic()
+        if accumulated:
+            await update.message.reply_text(accumulated)
         logger.info("replied to user_id=%s", user_id)
     except Exception:
         logger.exception("LLM call failed for user_id=%s", user_id)

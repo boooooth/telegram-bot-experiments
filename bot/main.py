@@ -63,6 +63,9 @@ def main() -> None:
     app.bot_data["complete"] = lambda text: openai_client.complete(
         settings.llm_model, settings.llm_api_key, text
     )
+    app.bot_data["complete_stream"] = lambda text: openai_client.complete_stream(
+        settings.llm_model, settings.llm_api_key, text
+    )
     app.bot_data["allowed_user_ids"] = settings.allowed_user_ids
 
     app.add_handler(CommandHandler("start", start))

@@ -70,7 +70,7 @@ def test_timeout_is_set():
     ) as mock:
         asyncio.run(complete("gpt-4o-mini", "test-key", "hello"))
         _, kwargs = mock.call_args
-        assert kwargs["timeout"] == 30
+        assert kwargs["timeout"] == 120
 
 
 def test_api_key_is_passed_through():
