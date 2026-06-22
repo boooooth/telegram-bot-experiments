@@ -48,6 +48,8 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info("guest query from user_id=%s", caller.id if caller else "unknown")
     try:
         reply = await context.bot_data["complete"](message.text)
+        if len(reply) > MAX_INLINE_TEXT:
+            reply = reply[: MAX_INLINE_TEXT - 1] + "…"
         await context.bot.answer_guest_query(
             guest_query_id=message.guest_query_id,
             result=InlineQueryResultArticle(
@@ -62,6 +64,7 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 MAX_MESSAGE_LENGTH = 4_000
+MAX_INLINE_TEXT = 4_096
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
