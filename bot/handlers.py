@@ -65,6 +65,11 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 MAX_MESSAGE_LENGTH = 4_000
 MAX_INLINE_TEXT = 4_096
+BLOCK_SIZE = 4_096
+
+
+def _split_blocks(text: str, size: int = BLOCK_SIZE) -> list[str]:
+    return [text[i : i + size] for i in range(0, max(len(text), 1), size)]
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -103,9 +108,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     chat_id=chat_id, draft_id=draft_id, text=draft_text
                 )
                 last_update = time.monotonic()
-        if len(accumulated) > MAX_INLINE_TEXT:
-            accumulated = accumulated[: MAX_INLINE_TEXT - 1] + "…"
-        await update.message.reply_text(accumulated)
+        for block in _split_blocks(accumulated):
+            await update.message.reply_text(block)
         logger.info("replied to user_id=%s", user_id)
     except Exception:
         logger.exception("LLM call failed for user_id=%s", user_id)
