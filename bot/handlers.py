@@ -71,6 +71,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.info("unauthorized access attempt from user_id=%s", user_id)
         return
     text = update.message.text
+    if not text:
+        return
     if len(text) > MAX_MESSAGE_LENGTH:
         await update.message.reply_text(
             f"Your message is too long ({len(text):,} chars). "
