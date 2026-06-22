@@ -1,0 +1,30 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+
+# Environment / secrets
+.env
+.env.local
+!.env.example
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Claude Code local config (settings, memory)
+.claude/
+
+# Ruff cache
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,6 @@
+services:
+  bot:
+    build: .
+    image: ghcr.io/${GITHUB_REPOSITORY:-telegram-bot-ai}/bot:latest
+    env_file: .env
+    restart: unless-stopped
