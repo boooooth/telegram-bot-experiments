@@ -2,13 +2,21 @@
 
 A Telegram bot that forwards your messages to an LLM and sends the reply back. Send a message, get an AI answer — no extra apps, no setup on the user side.
 
-The bot has a sarcastic personality: correct and useful, but delivered with dry wit. Replies in whatever language you write in.
+The bot has a sarcastic personality: correct and useful, but delivered with dry wit. Replies in whatever language you write in. (changable)
 
 ## How it works
 
-1. User sends a text message in Telegram
-2. Bot forwards it to the configured LLM (OpenAI `gpt-4o-mini` by default) via LiteLLM
-3. Reply is sent back in the same chat
+**Direct message (private chat):**
+1. User sends a text message
+2. Bot shows a "Thinking..." animation immediately
+3. As the LLM generates tokens, the bot streams them live into the chat draft
+4. Once done, the full reply is pinned as a permanent message
+5. Replies longer than 4096 chars are split into blocks — each block streams and pins independently
+
+**Group mention (guest mode):**
+1. User @mentions the bot in a group it's not a member of
+2. Bot sends a single complete reply (no streaming — Telegram's guest API is one-shot only)
+3. Replies are truncated to 4096 chars if the LLM generates more
 
 Each message is answered independently — no conversation history is stored.
 
@@ -103,7 +111,7 @@ pytest              # tests
 bot/
   config.py        # env var loading; fails fast at boot if required vars are missing
   handlers.py      # Telegram message and command handlers
-  openai_client.py # LiteLLM call wrapper
+  openai_client.py # LiteLLM call wrappers (complete + complete_stream)
   prompts.py       # system prompt, /start and /help text
   main.py          # app wiring and polling loop
 tests/
@@ -123,6 +131,13 @@ LLM_API_KEY=sk-ant-...
 # Gemini
 LLM_MODEL=gemini/gemini-1.5-flash
 LLM_API_KEY=AIza...
-```
 
-No code changes required.
+# Ollama (local)
+LLM_MODEL=ollama/llama3.1:8b
+LLM_API_KEY=ollama
+
+# Cloudflare Workers AI
+LLM_MODEL=cloudflare/@cf/meta/llama-3.1-8b-instruct
+LLM_API_KEY=your-cloudflare-api-token
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+```
