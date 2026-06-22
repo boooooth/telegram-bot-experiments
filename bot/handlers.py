@@ -1,9 +1,12 @@
 import logging
+import time
 
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.ext import ContextTypes
 
 from .prompts import HELP_TEXT, START_TEXT
+
+_DRAFT_UPDATE_INTERVAL = 1.0  # seconds between sendMessageDraft calls
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +84,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.info("message too long from user_id=%s (%d chars)", user_id, len(text))
         return
     logger.info("message from user_id=%s", user_id)
+    chat_id = update.effective_chat.id
+    draft_id = update.message.message_id
     try:
-        reply = await context.bot_data["complete"](text)
-        await update.message.reply_text(reply)
+        await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+        accumulated = ""
+        last_update = time.monotonic()
+        async for chunk in context.bot_data["complete_stream"](text):
+            accumulated += chunk
+            if time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
+                await context.bot.send_message_draft(
+                    chat_id=chat_id, draft_id=draft_id, text=accumulated
+                )
+                last_update = time.monotonic()
+        await update.message.reply_text(accumulated)
         logger.info("replied to user_id=%s", user_id)
     except Exception:
         logger.exception("LLM call failed for user_id=%s", user_id)
