@@ -15,8 +15,14 @@ def _make_update(text="hello", user_id=123):
 
 def _make_context(reply="hi back", allowed=frozenset()):
     context = MagicMock()
+    context.bot.send_message_draft = AsyncMock()
+
+    async def _stream_reply(*args):
+        yield reply
+
     context.bot_data = {
         "complete": AsyncMock(return_value=reply),
+        "complete_stream": MagicMock(side_effect=_stream_reply),
         "allowed_user_ids": allowed,
     }
     return context
@@ -48,14 +54,14 @@ def test_handle_text_replies_with_llm_output():
     update = _make_update("hello")
     context = _make_context(reply="the answer")
     asyncio.run(handle_text(update, context))
-    context.bot_data["complete"].assert_awaited_once_with("hello")
+    context.bot_data["complete_stream"].assert_called_once_with("hello")
     update.message.reply_text.assert_awaited_once_with("the answer")
 
 
 def test_handle_text_friendly_error_on_llm_failure():
     update = _make_update("boom")
     context = _make_context()
-    context.bot_data["complete"].side_effect = RuntimeError("llm down")
+    context.bot_data["complete_stream"].side_effect = RuntimeError("llm down")
     asyncio.run(handle_text(update, context))
     update.message.reply_text.assert_awaited_once()
     assert "went wrong" in update.message.reply_text.call_args.args[0]
@@ -74,7 +80,7 @@ def test_handle_text_allows_any_when_no_restrictions():
     update = _make_update(user_id=999)
     context = _make_context()
     asyncio.run(handle_text(update, context))
-    context.bot_data["complete"].assert_awaited_once()
+    context.bot_data["complete_stream"].assert_called_once()
 
 
 def test_handle_text_no_user_blocked_when_allowlist_set():
