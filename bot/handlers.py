@@ -96,10 +96,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         async for chunk in context.bot_data["complete_stream"](text):
             accumulated += chunk
             if time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
+                draft_text = accumulated
+                if len(draft_text) > MAX_INLINE_TEXT:
+                    draft_text = draft_text[: MAX_INLINE_TEXT - 1] + "…"
                 await context.bot.send_message_draft(
-                    chat_id=chat_id, draft_id=draft_id, text=accumulated
+                    chat_id=chat_id, draft_id=draft_id, text=draft_text
                 )
                 last_update = time.monotonic()
+        if len(accumulated) > MAX_INLINE_TEXT:
+            accumulated = accumulated[: MAX_INLINE_TEXT - 1] + "…"
         await update.message.reply_text(accumulated)
         logger.info("replied to user_id=%s", user_id)
     except Exception:
