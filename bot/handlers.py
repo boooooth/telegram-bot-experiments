@@ -68,10 +68,6 @@ MAX_INLINE_TEXT = 4_096
 BLOCK_SIZE = 4_096
 
 
-def _split_blocks(text: str, size: int = BLOCK_SIZE) -> list[str]:
-    return [text[i : i + size] for i in range(0, max(len(text), 1), size)]
-
-
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None or update.effective_chat is None:
         return
@@ -93,23 +89,29 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     logger.info("message from user_id=%s", user_id)
     chat_id = update.effective_chat.id
-    draft_id = update.message.message_id
+    base_draft_id = update.message.message_id
+    block_count = 0
+    draft_id = base_draft_id
     try:
         await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
         accumulated = ""
         last_update = time.monotonic()
         async for chunk in context.bot_data["complete_stream"](text):
             accumulated += chunk
-            if time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
-                draft_text = accumulated
-                if len(draft_text) > MAX_INLINE_TEXT:
-                    draft_text = draft_text[: MAX_INLINE_TEXT - 1] + "…"
+            if len(accumulated) >= BLOCK_SIZE:
+                await update.message.reply_text(accumulated[:BLOCK_SIZE])
+                accumulated = accumulated[BLOCK_SIZE:]
+                block_count += 1
+                draft_id = base_draft_id + block_count
+                last_update = time.monotonic()
+                await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+            elif time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
                 await context.bot.send_message_draft(
-                    chat_id=chat_id, draft_id=draft_id, text=draft_text
+                    chat_id=chat_id, draft_id=draft_id, text=accumulated
                 )
                 last_update = time.monotonic()
-        for block in _split_blocks(accumulated):
-            await update.message.reply_text(block)
+        if accumulated:
+            await update.message.reply_text(accumulated)
         logger.info("replied to user_id=%s", user_id)
     except Exception:
         logger.exception("LLM call failed for user_id=%s", user_id)
