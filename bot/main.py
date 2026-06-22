@@ -23,25 +23,16 @@ async def _log_update(update: Update, context) -> None:
         caller = m.guest_bot_caller_user
         frm = m.from_user
         chat = m.chat
-        frm_str = (
-            f"{frm.full_name} (@{frm.username}, id={frm.id})" if frm else "unknown"
-        )
+        frm_str = f"{frm.full_name} (@{frm.username}, id={frm.id})" if frm else "unknown"
         caller_str = (
-            f"{caller.full_name} (@{caller.username}, id={caller.id})"
-            if caller
-            else "unknown"
+            f"{caller.full_name} (@{caller.username}, id={caller.id})" if caller else "unknown"
         )
-        chat_str = (
-            getattr(chat, "title", None)
-            or getattr(chat, "full_name", None)
-            or str(chat.id)
-        )
+        chat_str = getattr(chat, "title", None) or getattr(chat, "full_name", None) or str(chat.id)
         _log.info(
             "\n[GUEST UPDATE #%s]\n"
             "  Mentioned by : %s\n"
             "  Caller       : %s\n"
             "  Chat         : %s [%s, id=%s]\n"
-            "  Text         : %r\n"
             "  query_id     : %s",
             update.update_id,
             frm_str,
@@ -49,7 +40,6 @@ async def _log_update(update: Update, context) -> None:
             chat_str,
             chat.type,
             chat.id,
-            m.text,
             m.guest_query_id,
         )
     else:
@@ -73,14 +63,11 @@ def main() -> None:
     app.bot_data["complete"] = lambda text: openai_client.complete(
         settings.llm_model, settings.llm_api_key, text
     )
-    app.bot_data["allowed_chat_ids"] = settings.allowed_chat_ids
     app.bot_data["allowed_user_ids"] = settings.allowed_user_ids
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(
-        MessageHandler(filters.UpdateType.GUEST_MESSAGE, handle_guest_query)
-    )
+    app.add_handler(MessageHandler(filters.UpdateType.GUEST_MESSAGE, handle_guest_query))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(TypeHandler(Update, _log_update), group=1)
 

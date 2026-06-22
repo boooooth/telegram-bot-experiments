@@ -1,18 +1,23 @@
 """Shared test fixtures for config tests.
 
-Ensures the three config env vars never leak from the real environment into a
-test. Tests opt in to specific values via the `set_env` helper (which uses
+Ensures all config env vars never leak from the real environment into a test.
+Tests opt in to specific values via the `set_env` helper (which uses
 pytest's monkeypatch so changes are auto-reverted after each test).
 """
 
 import pytest
 
-CONFIG_ENV_VARS = ("TELEGRAM_BOT_TOKEN", "LLM_API_KEY", "LLM_MODEL")
+CONFIG_ENV_VARS = (
+    "TELEGRAM_BOT_TOKEN",
+    "LLM_API_KEY",
+    "LLM_MODEL",
+    "ALLOWED_USER_IDS",
+)
 
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Remove all three config env vars so each test starts from a blank slate."""
+    """Remove all config env vars so each test starts from a blank slate."""
     for var in CONFIG_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
     return monkeypatch

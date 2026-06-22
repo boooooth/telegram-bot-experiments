@@ -1,6 +1,8 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from bot.openai_client import complete
 from bot.prompts import SYSTEM_PROMPT
 
@@ -59,3 +61,32 @@ def test_none_content_returns_empty_string():
     ):
         result = asyncio.run(complete("gpt-4o-mini", "test-key", "q"))
         assert result == ""
+
+
+def test_timeout_is_set():
+    with patch(
+        "bot.openai_client.litellm.acompletion",
+        new=AsyncMock(return_value=_make_mock_response()),
+    ) as mock:
+        asyncio.run(complete("gpt-4o-mini", "test-key", "hello"))
+        _, kwargs = mock.call_args
+        assert kwargs["timeout"] == 30
+
+
+def test_api_key_is_passed_through():
+    with patch(
+        "bot.openai_client.litellm.acompletion",
+        new=AsyncMock(return_value=_make_mock_response()),
+    ) as mock:
+        asyncio.run(complete("gpt-4o-mini", "secret-key", "hello"))
+        _, kwargs = mock.call_args
+        assert kwargs["api_key"] == "secret-key"
+
+
+def test_litellm_exception_propagates():
+    with patch(
+        "bot.openai_client.litellm.acompletion",
+        new=AsyncMock(side_effect=RuntimeError("network error")),
+    ):
+        with pytest.raises(RuntimeError, match="network error"):
+            asyncio.run(complete("gpt-4o-mini", "test-key", "hello"))
