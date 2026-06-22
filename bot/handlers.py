@@ -47,7 +47,15 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
     caller = message.guest_bot_caller_user
     logger.info("guest query from user_id=%s", caller.id if caller else "unknown")
     try:
-        reply = await context.bot_data["complete"](message.text)
+        replied_to = message.reply_to_message
+        if replied_to and replied_to.text:
+            prompt = (
+                f"The user is referring to this message:\n{replied_to.text}"
+                f"\n\nUser's request: {message.text}"
+            )
+        else:
+            prompt = message.text
+        reply = await context.bot_data["complete"](prompt)
         if len(reply) > MAX_INLINE_TEXT:
             reply = reply[: MAX_INLINE_TEXT - 1] + "…"
         await context.bot.answer_guest_query(

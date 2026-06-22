@@ -34,6 +34,7 @@ def _make_guest_update(text="hello", user_id=123, query_id="qid123"):
     update.guest_message.guest_query_id = query_id
     update.guest_message.from_user.id = user_id
     update.guest_message.guest_bot_caller_user = MagicMock()
+    update.guest_message.reply_to_message = None
     return update
 
 
@@ -156,3 +157,23 @@ def test_handle_guest_query_noop_when_no_text():
     context = _make_guest_context()
     asyncio.run(handle_guest_query(update, context))
     context.bot_data["complete"].assert_not_awaited()
+
+
+def test_handle_guest_query_includes_reply_context():
+    update = _make_guest_update(text="explain this")
+    replied = MagicMock()
+    replied.text = "def foo(): pass"
+    update.guest_message.reply_to_message = replied
+    context = _make_guest_context()
+    asyncio.run(handle_guest_query(update, context))
+    called_prompt = context.bot_data["complete"].call_args.args[0]
+    assert "def foo(): pass" in called_prompt
+    assert "explain this" in called_prompt
+
+
+def test_handle_guest_query_no_reply_context():
+    update = _make_guest_update(text="what is recursion")
+    update.guest_message.reply_to_message = None
+    context = _make_guest_context()
+    asyncio.run(handle_guest_query(update, context))
+    context.bot_data["complete"].assert_awaited_once_with("what is recursion")
