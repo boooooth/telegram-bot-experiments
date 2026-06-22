@@ -14,7 +14,7 @@ async def complete(model: str, api_key: str, user_text: str) -> str:
     resp = await litellm.acompletion(
         model=model,
         api_key=api_key,
-        timeout=30,
+        timeout=120,
         messages=_MESSAGES(user_text),
     )
     return resp.choices[0].message.content or ""
@@ -24,7 +24,7 @@ async def complete_stream(model: str, api_key: str, user_text: str) -> AsyncGene
     resp = await litellm.acompletion(
         model=model,
         api_key=api_key,
-        timeout=60,
+        timeout=120,
         stream=True,
         messages=_MESSAGES(user_text),
     )
