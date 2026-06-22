@@ -51,3 +51,35 @@ def test_blank_token_treated_as_missing(set_env):
     with pytest.raises(ConfigError) as excinfo:
         load_settings()
     assert "TELEGRAM_BOT_TOKEN" in str(excinfo.value)
+
+
+def test_blank_llm_api_key_treated_as_missing(set_env):
+    set_env("TELEGRAM_BOT_TOKEN", "tg-token")
+    set_env("LLM_API_KEY", "   ")
+    with pytest.raises(ConfigError) as excinfo:
+        load_settings()
+    assert "LLM_API_KEY" in str(excinfo.value)
+
+
+def test_allowed_user_ids_parsed_correctly(set_env):
+    set_env("TELEGRAM_BOT_TOKEN", "tg-token")
+    set_env("LLM_API_KEY", "sk-key")
+    set_env("ALLOWED_USER_IDS", "444, 555")
+    settings = load_settings()
+    assert settings.allowed_user_ids == frozenset({444, 555})
+
+
+def test_empty_allowed_ids_defaults_to_open_access(set_env):
+    set_env("TELEGRAM_BOT_TOKEN", "tg-token")
+    set_env("LLM_API_KEY", "sk-key")
+    settings = load_settings()
+    assert settings.allowed_user_ids == frozenset()
+
+
+def test_invalid_allowed_user_ids_raises_config_error(set_env):
+    set_env("TELEGRAM_BOT_TOKEN", "tg-token")
+    set_env("LLM_API_KEY", "sk-key")
+    set_env("ALLOWED_USER_IDS", "111,abc,333")
+    with pytest.raises(ConfigError) as excinfo:
+        load_settings()
+    assert "ALLOWED_USER_IDS" in str(excinfo.value)

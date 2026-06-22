@@ -62,6 +62,9 @@ async def handle_guest_query(
         logger.exception("LLM call failed for guest query")
 
 
+MAX_MESSAGE_LENGTH = 4_000
+
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None or update.effective_chat is None:
         return
@@ -73,9 +76,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         logger.info("unauthorized access attempt from user_id=%s", user_id)
         return
+    text = update.message.text
+    if len(text) > MAX_MESSAGE_LENGTH:
+        await update.message.reply_text(
+            f"Your message is too long ({len(text):,} chars). "
+            f"Please keep it under {MAX_MESSAGE_LENGTH:,} characters."
+        )
+        logger.info("message too long from user_id=%s (%d chars)", user_id, len(text))
+        return
     logger.info("message from user_id=%s", user_id)
     try:
-        reply = await context.bot_data["complete"](update.message.text)
+        reply = await context.bot_data["complete"](text)
         await update.message.reply_text(reply)
         logger.info("replied to user_id=%s", user_id)
     except Exception:

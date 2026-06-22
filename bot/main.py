@@ -41,7 +41,6 @@ async def _log_update(update: Update, context) -> None:
             "  Mentioned by : %s\n"
             "  Caller       : %s\n"
             "  Chat         : %s [%s, id=%s]\n"
-            "  Text         : %r\n"
             "  query_id     : %s",
             update.update_id,
             frm_str,
@@ -49,7 +48,6 @@ async def _log_update(update: Update, context) -> None:
             chat_str,
             chat.type,
             chat.id,
-            m.text,
             m.guest_query_id,
         )
     else:
@@ -73,7 +71,6 @@ def main() -> None:
     app.bot_data["complete"] = lambda text: openai_client.complete(
         settings.llm_model, settings.llm_api_key, text
     )
-    app.bot_data["allowed_chat_ids"] = settings.allowed_chat_ids
     app.bot_data["allowed_user_ids"] = settings.allowed_user_ids
 
     app.add_handler(CommandHandler("start", start))

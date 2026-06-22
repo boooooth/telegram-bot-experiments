@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -30,7 +30,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}/bot:latest
+          tags: |
+            ghcr.io/${{ github.repository }}/bot:latest
+            ghcr.io/${{ github.repository }}/bot:${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
