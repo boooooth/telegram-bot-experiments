@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 import time
 
@@ -26,12 +27,6 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(HELP_TEXT)
 
 
-async def _keep_typing(bot, chat_id: int) -> None:
-    while True:
-        await bot.send_chat_action(chat_id=chat_id, action="typing")
-        await asyncio.sleep(4)
-
-
 _TRUNCATION_NOTICE = "\n\n(reply truncated — message me directly for the full answer)"
 
 
@@ -45,7 +40,9 @@ def _clip(text: str, limit: int) -> str:
 
 async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.guest_message
-    if message is None or not message.text or not message.guest_query_id:
+    if message is None or not message.guest_query_id:
+        return
+    if not message.text and not (message.reply_to_message and message.reply_to_message.photo):
         return
 
     user_id = message.from_user.id if message.from_user else None
@@ -68,13 +65,29 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info("guest query from user_id=%s", caller.id if caller else "unknown")
     try:
         replied_to = message.reply_to_message
-        if replied_to and replied_to.text:
+
+        if replied_to and replied_to.photo:
+            photo = replied_to.photo[-1]
+            caption = message.text or "What's in this image?"
+            for attempt in range(2):
+                try:
+                    photo_file = await photo.get_file()
+                    image_bytes = await photo_file.download_as_bytearray()
+                    break
+                except Exception:
+                    if attempt == 1:
+                        raise
+                    await asyncio.sleep(1)
+            image_b64 = base64.b64encode(image_bytes).decode()
+            stream = context.bot_data["complete_stream_image"](image_b64, caption)
+        elif replied_to and replied_to.text:
             prompt = (
                 f"The user is referring to this message:\n{replied_to.text}"
                 f"\n\nUser's request: {message.text}"
             )
+            stream = context.bot_data["complete_stream"](prompt)
         else:
-            prompt = message.text
+            stream = context.bot_data["complete_stream"](message.text)
 
         sent = await context.bot.answer_guest_query(
             guest_query_id=message.guest_query_id,
@@ -89,7 +102,7 @@ async def handle_guest_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
         accumulated = ""
         last_sent = "…"
         last_edit = time.monotonic()
-        async for chunk in context.bot_data["complete_stream"](prompt):
+        async for chunk in stream:
             accumulated += chunk
             if time.monotonic() - last_edit >= _EDIT_UPDATE_INTERVAL:
                 clipped = _clip(accumulated, MAX_INLINE_TEXT)
@@ -141,16 +154,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     logger.info("message from user_id=%s", user_id)
     chat_id = update.effective_chat.id
-    is_private = update.effective_chat.type == "private"
     base_draft_id = update.message.message_id
     block_count = 0
     draft_id = base_draft_id
-    typing_task = None
     try:
-        if is_private:
-            await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
-        else:
-            typing_task = asyncio.create_task(_keep_typing(context.bot, chat_id))
+        await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
         accumulated = ""
         last_update = time.monotonic()
         async for chunk in context.bot_data["complete_stream"](text):
@@ -161,11 +169,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 block_count += 1
                 draft_id = base_draft_id + block_count
                 last_update = time.monotonic()
-                if is_private:
-                    await context.bot.send_message_draft(
-                        chat_id=chat_id, draft_id=draft_id, text=""
-                    )
-            elif is_private and time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
+                await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+            elif time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
                 await context.bot.send_message_draft(
                     chat_id=chat_id, draft_id=draft_id, text=accumulated
                 )
@@ -178,6 +183,60 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(
             "Sorry, something went wrong. Please try again in a moment."
         )
-    finally:
-        if typing_task:
-            typing_task.cancel()
+
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_chat is None:
+        return
+    user_id = update.effective_user.id if update.effective_user else None
+    allowed_user_ids = context.bot_data.get("allowed_user_ids", frozenset())
+    if allowed_user_ids and (not user_id or user_id not in allowed_user_ids):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        logger.info("unauthorized photo from user_id=%s", user_id)
+        return
+
+    photo = update.message.photo[-1]  # largest resolution
+    caption = update.message.caption or "What's in this image?"
+    logger.info("photo from user_id=%s", user_id)
+
+    chat_id = update.effective_chat.id
+    base_draft_id = update.message.message_id
+    block_count = 0
+    draft_id = base_draft_id
+    try:
+        photo_file = await photo.get_file()
+        for attempt in range(2):
+            try:
+                image_bytes = await photo_file.download_as_bytearray()
+                break
+            except Exception:
+                if attempt == 1:
+                    raise
+                await asyncio.sleep(1)
+        image_b64 = base64.b64encode(image_bytes).decode()
+
+        await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+        accumulated = ""
+        last_update = time.monotonic()
+        async for chunk in context.bot_data["complete_stream_image"](image_b64, caption):
+            accumulated += chunk
+            if len(accumulated) >= BLOCK_SIZE:
+                await update.message.reply_text(accumulated[:BLOCK_SIZE])
+                accumulated = accumulated[BLOCK_SIZE:]
+                block_count += 1
+                draft_id = base_draft_id + block_count
+                last_update = time.monotonic()
+                await context.bot.send_message_draft(chat_id=chat_id, draft_id=draft_id, text="")
+            elif time.monotonic() - last_update >= _DRAFT_UPDATE_INTERVAL:
+                await context.bot.send_message_draft(
+                    chat_id=chat_id, draft_id=draft_id, text=accumulated
+                )
+                last_update = time.monotonic()
+        if accumulated:
+            await update.message.reply_text(accumulated)
+        logger.info("replied to photo from user_id=%s", user_id)
+    except Exception:
+        logger.exception("LLM call failed for photo from user_id=%s", user_id)
+        await update.message.reply_text(
+            "Sorry, something went wrong processing your image. Please try again."
+        )

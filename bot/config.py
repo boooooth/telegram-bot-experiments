@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 REQUIRED_VARS = ("TELEGRAM_BOT_TOKEN", "LLM_API_KEY")
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
+DEFAULT_LLM_VISION_MODEL = "gpt-4o-mini"
 
 
 class ConfigError(RuntimeError):
@@ -26,6 +27,7 @@ class Settings:
     telegram_bot_token: str
     llm_api_key: str
     llm_model: str
+    llm_vision_model: str
     allowed_user_ids: frozenset[int]
 
 
@@ -55,5 +57,6 @@ def load_settings() -> Settings:
         telegram_bot_token=os.environ["TELEGRAM_BOT_TOKEN"],
         llm_api_key=os.environ["LLM_API_KEY"],
         llm_model=os.environ.get("LLM_MODEL", DEFAULT_LLM_MODEL),
+        llm_vision_model=os.environ.get("LLM_VISION_MODEL", DEFAULT_LLM_VISION_MODEL),
         allowed_user_ids=_parse_ids("ALLOWED_USER_IDS"),
     )
