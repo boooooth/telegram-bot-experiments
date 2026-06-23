@@ -166,7 +166,6 @@ def test_handle_text_private_uses_draft():
     context.bot.send_message_draft.assert_awaited()
 
 
-
 def test_start_sends_welcome():
     update = _make_update()
     asyncio.run(start(update, MagicMock()))
@@ -247,9 +246,9 @@ def test_handle_guest_query_photo_reply_uses_vision_stream():
     update = _make_guest_update(text="what is this?")
     replied = MagicMock()
     replied.photo = [MagicMock()]
-    replied.photo[-1].get_file = AsyncMock(return_value=AsyncMock(
-        download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg"))
-    ))
+    replied.photo[-1].get_file = AsyncMock(
+        return_value=AsyncMock(download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg")))
+    )
     update.guest_message.reply_to_message = replied
     context = _make_guest_context()
     asyncio.run(handle_guest_query(update, context))
@@ -261,9 +260,9 @@ def test_handle_guest_query_photo_reply_uses_caption_as_prompt():
     update = _make_guest_update(text="describe it please")
     replied = MagicMock()
     replied.photo = [MagicMock()]
-    replied.photo[-1].get_file = AsyncMock(return_value=AsyncMock(
-        download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg"))
-    ))
+    replied.photo[-1].get_file = AsyncMock(
+        return_value=AsyncMock(download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg")))
+    )
     update.guest_message.reply_to_message = replied
     context = _make_guest_context()
     asyncio.run(handle_guest_query(update, context))
@@ -285,9 +284,9 @@ def _make_photo_update(caption=None, user_id=123):
     update.message.caption = caption
     update.message.reply_text = AsyncMock()
     photo_size = MagicMock()
-    photo_size.get_file = AsyncMock(return_value=AsyncMock(
-        download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg"))
-    ))
+    photo_size.get_file = AsyncMock(
+        return_value=AsyncMock(download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg")))
+    )
     update.message.photo = [photo_size]
     return update
 

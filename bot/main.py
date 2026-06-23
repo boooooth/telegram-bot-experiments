@@ -66,8 +66,10 @@ def main() -> None:
     app.bot_data["complete_stream"] = lambda text: openai_client.complete_stream(
         settings.llm_model, settings.llm_api_key, text
     )
-    app.bot_data["complete_stream_image"] = lambda image_b64, caption: openai_client.complete_stream_image(
-        settings.llm_vision_model, settings.llm_api_key, image_b64, caption
+    app.bot_data["complete_stream_image"] = lambda image_b64, caption: (
+        openai_client.complete_stream_image(
+            settings.llm_vision_model, settings.llm_api_key, image_b64, caption
+        )
     )
     app.bot_data["allowed_user_ids"] = settings.allowed_user_ids
 

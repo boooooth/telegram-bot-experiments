@@ -56,7 +56,9 @@ async def complete_stream(model: str, api_key: str, user_text: str) -> AsyncGene
 async def complete_stream_image(
     model: str, api_key: str, image_b64: str, caption: str
 ) -> AsyncGenerator[str, None]:
-    logger.info("vision request: model=%s image_b64_len=%d caption=%r", model, len(image_b64), caption)
+    logger.info(
+        "vision request: model=%s image_b64_len=%d caption=%r", model, len(image_b64), caption
+    )
     resp = await litellm.acompletion(
         model=model,
         api_key=api_key,
