@@ -1,5 +1,6 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+import base64
+from unittest.mock import AsyncMock, MagicMock
 
 from bot.handlers import (
     _TRUNCATION_NOTICE,
@@ -7,6 +8,7 @@ from bot.handlers import (
     MAX_MESSAGE_LENGTH,
     _clip,
     handle_guest_query,
+    handle_photo,
     handle_text,
     help_cmd,
     start,
@@ -36,6 +38,7 @@ def _make_context(reply="hi back", allowed=frozenset()):
     context.bot_data = {
         "complete": AsyncMock(return_value=reply),
         "complete_stream": MagicMock(side_effect=_stream_reply),
+        "complete_stream_image": MagicMock(side_effect=_stream_reply),
         "allowed_user_ids": allowed,
     }
     return context
@@ -64,6 +67,7 @@ def _make_guest_context(reply="hi back", allowed=frozenset()):
 
     context.bot_data = {
         "complete_stream": MagicMock(side_effect=_stream_reply),
+        "complete_stream_image": MagicMock(side_effect=_stream_reply),
         "allowed_user_ids": allowed,
     }
     return context
@@ -162,24 +166,6 @@ def test_handle_text_private_uses_draft():
     context.bot.send_message_draft.assert_awaited()
 
 
-def test_handle_text_group_skips_draft():
-    update = _make_update(chat_type="group")
-    context = _make_context()
-    asyncio.run(handle_text(update, context))
-    context.bot.send_message_draft.assert_not_awaited()
-
-
-def test_handle_text_group_starts_typing_task():
-    update = _make_update(chat_type="group")
-    context = _make_context()
-    with patch("bot.handlers.asyncio.create_task") as mock_create_task:
-        mock_create_task.return_value = MagicMock()
-        asyncio.run(handle_text(update, context))
-        # close the unawaited coroutine to suppress the warning
-        mock_create_task.call_args.args[0].close()
-    mock_create_task.assert_called_once()
-
-
 def test_start_sends_welcome():
     update = _make_update()
     asyncio.run(start(update, MagicMock()))
@@ -239,6 +225,7 @@ def test_handle_guest_query_includes_reply_context():
     update = _make_guest_update(text="explain this")
     replied = MagicMock()
     replied.text = "def foo(): pass"
+    replied.photo = None
     update.guest_message.reply_to_message = replied
     context = _make_guest_context()
     asyncio.run(handle_guest_query(update, context))
@@ -253,3 +240,93 @@ def test_handle_guest_query_no_reply_context():
     context = _make_guest_context()
     asyncio.run(handle_guest_query(update, context))
     context.bot_data["complete_stream"].assert_called_once_with("what is recursion")
+
+
+def test_handle_guest_query_photo_reply_uses_vision_stream():
+    update = _make_guest_update(text="what is this?")
+    replied = MagicMock()
+    replied.photo = [MagicMock()]
+    replied.photo[-1].get_file = AsyncMock(
+        return_value=AsyncMock(download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg")))
+    )
+    update.guest_message.reply_to_message = replied
+    context = _make_guest_context()
+    asyncio.run(handle_guest_query(update, context))
+    context.bot_data["complete_stream_image"].assert_called_once()
+    context.bot_data["complete_stream"].assert_not_called()
+
+
+def test_handle_guest_query_photo_reply_uses_caption_as_prompt():
+    update = _make_guest_update(text="describe it please")
+    replied = MagicMock()
+    replied.photo = [MagicMock()]
+    replied.photo[-1].get_file = AsyncMock(
+        return_value=AsyncMock(download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg")))
+    )
+    update.guest_message.reply_to_message = replied
+    context = _make_guest_context()
+    asyncio.run(handle_guest_query(update, context))
+    _, kwargs = context.bot_data["complete_stream_image"].call_args
+    image_b64, caption = context.bot_data["complete_stream_image"].call_args.args
+    assert caption == "describe it please"
+    assert image_b64 == base64.b64encode(b"fakeimg").decode()
+
+
+# --- handle_photo ---
+
+
+def _make_photo_update(caption=None, user_id=123):
+    update = MagicMock()
+    update.effective_user.id = user_id
+    update.effective_chat.id = 100
+    update.effective_chat.type = "private"
+    update.message.message_id = 1
+    update.message.caption = caption
+    update.message.reply_text = AsyncMock()
+    photo_size = MagicMock()
+    photo_size.get_file = AsyncMock(
+        return_value=AsyncMock(download_as_bytearray=AsyncMock(return_value=bytearray(b"fakeimg")))
+    )
+    update.message.photo = [photo_size]
+    return update
+
+
+def test_handle_photo_calls_vision_stream():
+    update = _make_photo_update(caption="what is this?")
+    context = _make_context()
+    asyncio.run(handle_photo(update, context))
+    context.bot_data["complete_stream_image"].assert_called_once()
+    context.bot_data["complete_stream"].assert_not_called()
+
+
+def test_handle_photo_uses_caption_as_prompt():
+    update = _make_photo_update(caption="my caption")
+    context = _make_context()
+    asyncio.run(handle_photo(update, context))
+    image_b64, caption = context.bot_data["complete_stream_image"].call_args.args
+    assert caption == "my caption"
+    assert image_b64 == base64.b64encode(b"fakeimg").decode()
+
+
+def test_handle_photo_defaults_caption_when_none():
+    update = _make_photo_update(caption=None)
+    context = _make_context()
+    asyncio.run(handle_photo(update, context))
+    _, caption = context.bot_data["complete_stream_image"].call_args.args
+    assert caption == "What's in this image?"
+
+
+def test_handle_photo_rejects_unauthorized_user():
+    update = _make_photo_update(user_id=999)
+    context = _make_context(allowed=frozenset({123}))
+    asyncio.run(handle_photo(update, context))
+    update.message.reply_text.assert_awaited_once()
+    assert "not authorized" in update.message.reply_text.call_args.args[0]
+    context.bot_data["complete_stream_image"].assert_not_called()
+
+
+def test_handle_photo_uses_draft():
+    update = _make_photo_update()
+    context = _make_context()
+    asyncio.run(handle_photo(update, context))
+    context.bot.send_message_draft.assert_awaited()

@@ -12,7 +12,7 @@ from telegram.ext import (
 
 from . import openai_client
 from .config import load_settings
-from .handlers import handle_guest_query, handle_text, help_cmd, start
+from .handlers import handle_guest_query, handle_photo, handle_text, help_cmd, start
 
 _log = logging.getLogger(__name__)
 
@@ -66,12 +66,18 @@ def main() -> None:
     app.bot_data["complete_stream"] = lambda text: openai_client.complete_stream(
         settings.llm_model, settings.llm_api_key, text
     )
+    app.bot_data["complete_stream_image"] = lambda image_b64, caption: (
+        openai_client.complete_stream_image(
+            settings.llm_vision_model, settings.llm_api_key, image_b64, caption
+        )
+    )
     app.bot_data["allowed_user_ids"] = settings.allowed_user_ids
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(MessageHandler(filters.UpdateType.GUEST_MESSAGE, handle_guest_query))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(TypeHandler(Update, _log_update), group=1)
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
